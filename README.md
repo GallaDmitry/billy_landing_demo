@@ -2,7 +2,7 @@
 
 Concept **"Dentro il punto"**: scroll "in profondità" — ogni capitolo nasce dentro un punto (il punto blu del logo, il punto finale dei titoli).
 
-Demo: https://galladmitry.github.io/billy-landing/
+Demo: https://galladmitry.github.io/billy_landing_demo/
 
 - Sito statico: `index.html`, `css/styles.css`, `js/main.js` (nessuna build, nessuna dipendenza).
 - Mobile: layout adattivo; con `prefers-reduced-motion` diventa un landing verticale classico.
