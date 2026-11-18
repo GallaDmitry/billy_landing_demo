@@ -91,6 +91,11 @@ html.deep #track { position: relative; width: 1px; pointer-events: none; }
 #vh-probe { position: absolute; top: 0; left: 0; width: 1px; height: 100vh; height: 100lvh; visibility: hidden; pointer-events: none; }
 html:not(.deep) #field, html:not(.deep) .chapters, html:not(.deep) .hud, html:not(.deep) .scroll-hint { display: none; }
 
+/* blur jump between distant chapters */
+html.deep .stage, html.deep #field { transition: filter .45s cubic-bezier(.2,.7,.2,1), opacity .45s cubic-bezier(.2,.7,.2,1); }
+html.deep.jump-out .stage { filter: blur(32px); transition-duration: .3s; }
+html.deep.jump-out #field { opacity: 0; transition-duration: .3s; }
+
 /* measuring: neutralise animation transforms to read real layout */
 html.measuring .scene-inner { transform: none !important; }
 html.measuring .r { transform: none !important; transition: none !important; }

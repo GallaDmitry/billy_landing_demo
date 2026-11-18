@@ -192,9 +192,27 @@
   }
 
   // ---------- navigation ----------
+  // Neighbouring chapter: fly there. Anything further: blur out, cut, blur in
+  // (flying through every chapter in between looks messy).
+  let jumping = false;
   function goTo(i) {
-    const s = S[clamp(i, 0, S.length - 1)];
-    scrollTo({ top: (s.start + Math.min(0.6, s.hold * 0.6)) * vh, behavior: 'smooth' });
+    i = clamp(i, 0, S.length - 1);
+    const s = S[i];
+    const top = (s.start + Math.min(0.6, s.hold * 0.6)) * vh;
+    const from = state.active < 0 ? 0 : state.active;
+    if (Math.abs(i - from) <= 1) { scrollTo({ top, behavior: 'smooth' }); return; }
+    if (jumping) return;
+    jumping = true;
+    root.classList.add('jump-out');
+    setTimeout(() => {
+      scrollTo({ top, behavior: 'instant' });
+      target = cur = top / vh;
+      render(cur);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        root.classList.remove('jump-out');
+        setTimeout(() => { jumping = false; }, 450);
+      }));
+    }, 300);
   }
   if (nav) {
     S.forEach((s, i) => {
