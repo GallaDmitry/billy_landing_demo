@@ -195,7 +195,26 @@
   // One gesture (wheel, swipe, key) = one chapter. The flight to the next
   // chapter's resting point is a timed tween; native scrolling is disabled.
   const restU = (s) => (s.i === 0 ? 0 : s.start + Math.min(0.6, s.hold * 0.6));
-  const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  // gentle sine in/out: low peak speed, no abrupt start or stop
+  const easeInOut = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
+  // "Visual" distance: holds (where nothing moves) count for little, dives count fully,
+  // so the tween spends its time on the flight itself instead of rushing through it.
+  const HOLD_W = 0.25;
+  const segW = (sg) => (sg.type === 'hold' ? HOLD_W : 1);
+  function warp(u) {
+    let w = 0;
+    for (const sg of segs) { if (u <= sg.a) break; w += (Math.min(u, sg.b) - sg.a) * segW(sg); }
+    return w;
+  }
+  function unwarp(w) {
+    let acc = 0;
+    for (const sg of segs) {
+      const len = (sg.b - sg.a) * segW(sg);
+      if (w <= acc + len) return sg.a + (w - acc) / segW(sg);
+      acc += len;
+    }
+    return total;
+  }
   let tween = null;      // { from, to, t0, dur }
   let jumping = false;
   let lastProg = 0;      // time of our last programmatic scrollTo
@@ -210,8 +229,8 @@
     const to = restU(S[i]);
     const from = cur;
     if (Math.abs(to - from) < 0.01) return;
-    const dist = Math.abs(to - from);
-    tween = { from, to, t0: performance.now(), dur: clamp(500 + dist * 520, 700, 1500) };
+    const wf = warp(from), wt = warp(to);
+    tween = { wf, wt, to, t0: performance.now(), dur: clamp(900 + Math.abs(wt - wf) * 900, 1400, 2600) };
   }
   // Neighbouring chapter: fly there. Anything further: blur out, cut, blur in
   // (flying through every chapter in between looks messy).
@@ -383,7 +402,7 @@
     const prev = cur;
     if (tween) {
       const t = clamp((now - tween.t0) / tween.dur, 0, 1);
-      cur = target = tween.from + (tween.to - tween.from) * easeInOut(t);
+      cur = target = t >= 1 ? tween.to : unwarp(tween.wf + (tween.wt - tween.wf) * easeInOut(t));
       setScroll(cur);
       if (t >= 1) tween = null;
     } else {
