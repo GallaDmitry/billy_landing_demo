@@ -2,66 +2,56 @@
  * Scroll-driven zoom into a dot. Each scene hides a portal (a dot);
  * scrolling flies the camera into it and the next scene grows from inside.
  */
-/* "Maggiori informazioni": the hero button turns into a dot, and a side panel
- * grows out of that dot (the same "world inside a dot" move as the chapters).
- * The dot becomes a back arrow that reverses everything. */
+/* "Maggiori informazioni": an app-style page push. The info page slides into
+ * the centre from the right while the hero is pushed out to the left; at the
+ * same time the button turns into a round back arrow and travels to the
+ * page's top-right corner. The arrow reverses everything. */
 window.BillyMore = (() => {
   const root = document.documentElement;
   const btn = document.querySelector('.more-btn');
-  const panel = document.getElementById('more');
+  const page = document.getElementById('more');
+  const inner = page && page.querySelector('.more-inner');
   const dot = document.querySelector('.more-dot');
-  if (!btn || !panel || !dot) return { isOpen: () => false, close: (cb) => cb && cb() };
+  if (!btn || !page || !inner || !dot) return { isOpen: () => false, close: (cb) => cb && cb() };
 
-  const DOT = 56, MORPH = 550, GROW = 1100;
+  const T = () => (parseFloat(getComputedStyle(root).getPropertyValue('--more-t')) || 1) * 1000;
+  const D = () => parseFloat(getComputedStyle(root).getPropertyValue('--dot')) || 52;
   let state = 'closed'; // closed | opening | open | closing
   let timers = [];
   const later = (ms, f) => timers.push(setTimeout(f, ms));
-  const place = (el, x, y, w, h) => Object.assign(el.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
+  const place = (x, y, w, h) => Object.assign(dot.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
 
-  function geometry() {
-    const W = innerWidth, H = innerHeight;
-    const pw = panel.offsetWidth, pl = W - pw;
-    const header = parseFloat(getComputedStyle(root).getPropertyValue('--header')) || 64;
-    const mobile = pw >= W - 1;
-    const cx = mobile ? 22 + DOT / 2 : pl, cy = mobile ? header + 14 + DOT / 2 : H / 2;
-    const lx = cx - pl; // clip centre in panel coordinates
-    const R = Math.max(Math.hypot(lx, cy), Math.hypot(pw - lx, cy), Math.hypot(lx, H - cy), Math.hypot(pw - lx, H - cy)) * 1.02;
-    return { cx, cy, lx, R };
+  // where the arrow sits: the info page's top-right corner (measured at rest)
+  function corner() {
+    const prev = inner.style.transform;
+    inner.style.transition = 'none'; inner.style.transform = 'none';
+    const r = inner.getBoundingClientRect();
+    inner.style.transform = prev; void inner.offsetWidth; inner.style.transition = '';
+    const d = D();
+    return { x: r.right - d - 4, y: r.top + 4, d };
   }
-  const clipSmall = (g) => `circle(${DOT / 2}px at ${g.lx}px ${g.cy}px)`;
-  const clipBig = (g) => `circle(${g.R}px at ${g.lx}px ${g.cy}px)`;
 
   function open() {
     if (state !== 'closed') return;
+    timers.forEach(clearTimeout); timers = [];
     state = 'opening';
+    inner.scrollTop = 0;
     const r = btn.getBoundingClientRect();
-    dot.classList.remove('round', 'docked');
-    place(dot, r.left, r.top, r.width, r.height);
+    const c = corner();
+    dot.classList.remove('round');
+    dot.style.transition = 'none';
+    place(r.left, r.top, r.width, r.height);
     dot.classList.add('show');
+    void dot.offsetWidth;
+    dot.style.transition = '';
     btn.classList.add('is-hidden');
     btn.setAttribute('aria-expanded', 'true');
-    void dot.offsetWidth;
-    const g = geometry();
-    // 1. the button shrinks into a dot and travels to the panel's edge
+    // everything moves together: page in, hero out, button -> arrow -> corner
+    root.classList.add('more-open');
+    page.setAttribute('aria-hidden', 'false');
     dot.classList.add('round');
-    place(dot, g.cx - DOT / 2, g.cy - DOT / 2, DOT, DOT);
-    // 2. the panel grows out of the dot while the hero steps back
-    later(MORPH - 120, () => {
-      panel.style.transition = 'none';
-      panel.style.clipPath = clipSmall(g);
-      void panel.offsetWidth;
-      panel.style.transition = '';
-      root.classList.add('more-open');
-      panel.style.clipPath = clipBig(g);
-      panel.setAttribute('aria-hidden', 'false');
-    });
-    // 3. the dot becomes the back button
-    later(MORPH - 120 + GROW, () => {
-      state = 'open';
-      dot.classList.add('docked');
-      dot.tabIndex = 0;
-      dot.focus({ preventScroll: true });
-    });
+    place(c.x, c.y, c.d, c.d);
+    later(T(), () => { state = 'open'; dot.tabIndex = 0; dot.focus({ preventScroll: true }); });
   }
 
   function close(done) {
@@ -69,20 +59,13 @@ window.BillyMore = (() => {
     if (state === 'closing') return;
     timers.forEach(clearTimeout); timers = [];
     state = 'closing';
-    const g = geometry();
-    dot.classList.remove('docked');
     dot.tabIndex = -1;
-    // 1. the panel collapses back into the dot, the hero comes forward
-    panel.style.clipPath = clipSmall(g);
     root.classList.remove('more-open');
-    panel.setAttribute('aria-hidden', 'true');
-    // 2. the dot turns back into the button
-    later(GROW - 150, () => {
-      const r = btn.getBoundingClientRect();
-      dot.classList.remove('round');
-      place(dot, r.left, r.top, r.width, r.height);
-    });
-    later(GROW - 150 + MORPH, () => {
+    page.setAttribute('aria-hidden', 'true');
+    const r = btn.getBoundingClientRect();
+    dot.classList.remove('round');
+    place(r.left, r.top, r.width, r.height);
+    later(T(), () => {
       dot.classList.remove('show');
       btn.classList.remove('is-hidden');
       btn.setAttribute('aria-expanded', 'false');
@@ -96,12 +79,11 @@ window.BillyMore = (() => {
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && state !== 'closed') close(); });
   addEventListener('resize', () => {
     if (state !== 'open') return;
-    const g = geometry();
-    dot.style.transition = 'none'; panel.style.transition = 'none';
-    place(dot, g.cx - DOT / 2, g.cy - DOT / 2, DOT, DOT);
-    panel.style.clipPath = clipBig(g);
+    const c = corner();
+    dot.style.transition = 'none';
+    place(c.x, c.y, c.d, c.d);
     void dot.offsetWidth;
-    dot.style.transition = ''; panel.style.transition = '';
+    dot.style.transition = '';
   });
 
   return { isOpen: () => state !== 'closed', close };
@@ -373,7 +355,7 @@ window.BillyMore = (() => {
   let lastWheel = 0, lastDelta = 0, acc = 0, swallow = false;
   addEventListener('wheel', (e) => {
     if (e.ctrlKey) return; // pinch-zoom
-    if (BillyMore.isOpen()) { if (!e.target.closest('.more')) e.preventDefault(); return; }
+    if (BillyMore.isOpen()) { if (!e.target.closest('.more-inner')) e.preventDefault(); return; }
     e.preventDefault();
     const now = performance.now();
     const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1);
@@ -393,7 +375,7 @@ window.BillyMore = (() => {
   // touch: one swipe = one step
   let ty = null, tx = null;
   addEventListener('touchstart', (e) => { if (e.touches.length === 1) { ty = e.touches[0].clientY; tx = e.touches[0].clientX; } }, { passive: true });
-  addEventListener('touchmove', (e) => { if (BillyMore.isOpen() && e.target.closest('.more')) return; if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
+  addEventListener('touchmove', (e) => { if (BillyMore.isOpen() && e.target.closest('.more-inner')) return; if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
   addEventListener('touchend', (e) => {
     if (ty == null) return;
     if (BillyMore.isOpen()) { ty = tx = null; return; }
@@ -409,7 +391,7 @@ window.BillyMore = (() => {
     if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
     if (BillyMore.isOpen()) {
       // keys scroll the panel, never the page behind it
-      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'Home', 'End'].includes(e.key) && !(e.target.closest && e.target.closest('.more'))) e.preventDefault();
+      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'Home', 'End'].includes(e.key) && !(e.target.closest && e.target.closest('.more-inner'))) e.preventDefault();
       return;
     }
     const k = e.key;
