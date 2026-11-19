@@ -71,7 +71,7 @@ button { font: inherit; color: inherit; }
 }
 
 /* ---------- deep mode (3D scroll) ---------- */
-html.deep, html.deep body { background: var(--ink); }
+html.deep, html.deep body { background: var(--ink); overscroll-behavior: none; }
 html.deep .stage {
   position: fixed; inset: 0; overflow: hidden;
   contain: strict;

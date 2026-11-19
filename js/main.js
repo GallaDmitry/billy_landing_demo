@@ -192,21 +192,41 @@
   }
 
   // ---------- navigation ----------
+  // One gesture (wheel, swipe, key) = one chapter. The flight to the next
+  // chapter's resting point is a timed tween; native scrolling is disabled.
+  const restU = (s) => (s.i === 0 ? 0 : s.start + Math.min(0.6, s.hold * 0.6));
+  const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  let tween = null;      // { from, to, t0, dur }
+  let jumping = false;
+  let lastProg = 0;      // time of our last programmatic scrollTo
+  function setScroll(u) { lastProg = performance.now(); scrollTo(0, u * vh); }
+
+  function nearestIndex(u) {
+    let best = 0, d = Infinity;
+    S.forEach((s, i) => { const dd = Math.abs(restU(s) - u); if (dd < d) { d = dd; best = i; } });
+    return best;
+  }
+  function flyTo(i) {
+    const to = restU(S[i]);
+    const from = cur;
+    if (Math.abs(to - from) < 0.01) return;
+    const dist = Math.abs(to - from);
+    tween = { from, to, t0: performance.now(), dur: clamp(500 + dist * 520, 700, 1500) };
+  }
   // Neighbouring chapter: fly there. Anything further: blur out, cut, blur in
   // (flying through every chapter in between looks messy).
-  let jumping = false;
   function goTo(i) {
     i = clamp(i, 0, S.length - 1);
-    const s = S[i];
-    const top = (s.start + Math.min(0.6, s.hold * 0.6)) * vh;
-    const from = state.active < 0 ? 0 : state.active;
-    if (Math.abs(i - from) <= 1) { scrollTo({ top, behavior: 'smooth' }); return; }
+    const from = tween ? nearestIndex(tween.to) : nearestIndex(cur);
+    if (Math.abs(i - from) <= 1) { flyTo(i); return; }
     if (jumping) return;
     jumping = true;
+    tween = null;
     root.classList.add('jump-out');
     setTimeout(() => {
-      scrollTo({ top, behavior: 'instant' });
-      target = cur = top / vh;
+      const u = restU(S[i]);
+      setScroll(u);
+      target = cur = u;
       render(cur);
       requestAnimationFrame(() => requestAnimationFrame(() => {
         root.classList.remove('jump-out');
@@ -214,6 +234,72 @@
       }));
     }, 300);
   }
+  function step(dir) {
+    if (jumping) return;
+    const base = tween ? tween.to : cur;
+    let i = -1;
+    if (dir > 0) i = S.findIndex((s) => restU(s) > base + 0.05);
+    else for (let k = S.length - 1; k >= 0; k--) if (restU(S[k]) < base - 0.05) { i = k; break; }
+    if (i >= 0) flyTo(i);
+  }
+  const busy = () => !!tween || jumping;
+
+  // wheel: one step per gesture; trackpad inertia is swallowed
+  let lastWheel = 0, lastDelta = 0, acc = 0, swallow = false;
+  addEventListener('wheel', (e) => {
+    if (e.ctrlKey) return; // pinch-zoom
+    e.preventDefault();
+    const now = performance.now();
+    const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1);
+    const gap = now - lastWheel;
+    lastWheel = now;
+    // a fresh gesture: after a pause, or a clear new push during decaying inertia
+    const fresh = gap > 220 || (Math.abs(d) > 24 && Math.abs(d) > Math.abs(lastDelta) * 1.8);
+    lastDelta = d;
+    if (busy()) { swallow = true; return; }
+    if (swallow && !fresh) return;
+    swallow = false;
+    if (gap > 220) acc = 0;
+    acc += d;
+    if (Math.abs(acc) >= 24) { step(Math.sign(acc)); acc = 0; swallow = true; }
+  }, { passive: false });
+
+  // touch: one swipe = one step
+  let ty = null, tx = null;
+  addEventListener('touchstart', (e) => { if (e.touches.length === 1) { ty = e.touches[0].clientY; tx = e.touches[0].clientX; } }, { passive: true });
+  addEventListener('touchmove', (e) => { if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
+  addEventListener('touchend', (e) => {
+    if (ty == null) return;
+    const t = e.changedTouches[0];
+    const dy = ty - t.clientY, dx = tx - t.clientX;
+    ty = tx = null;
+    if (Math.abs(dy) > 36 && Math.abs(dy) > Math.abs(dx)) step(Math.sign(dy));
+  }, { passive: true });
+
+  // keyboard
+  addEventListener('keydown', (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    const k = e.key;
+    let dir = 0;
+    if (k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !e.shiftKey)) dir = 1;
+    else if (k === 'ArrowUp' || k === 'PageUp' || (k === ' ' && e.shiftKey)) dir = -1;
+    else if (k === 'Home') { e.preventDefault(); goTo(0); return; }
+    else if (k === 'End') { e.preventDefault(); goTo(S.length - 1); return; }
+    if (!dir) return;
+    if (k === ' ' && e.target.closest && e.target.closest('a, button')) return;
+    e.preventDefault();
+    if (!e.repeat || !busy()) step(dir);
+  });
+
+  // anything else that scrolls natively (scrollbar drag, find-in-page): snap when it settles
+  let snapT;
+  addEventListener('scroll', () => {
+    if (performance.now() - lastProg < 120 || busy()) return;
+    clearTimeout(snapT);
+    snapT = setTimeout(() => { if (!busy()) flyTo(nearestIndex(scrollY / vh)); }, 160);
+  }, { passive: true });
+
   if (nav) {
     S.forEach((s, i) => {
       const b = document.createElement('button');
@@ -291,13 +377,20 @@
 
   // ---------- loop ----------
   let target = scrollY / vh, cur = target, last = performance.now(), velS = 0;
-  addEventListener('scroll', () => { target = scrollY / vh; }, { passive: true });
+  addEventListener('scroll', () => { if (!tween) target = scrollY / vh; }, { passive: true });
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const k = 1 - Math.pow(1 - 0.14, dt * 60);
     const prev = cur;
-    cur += (target - cur) * k;
-    if (Math.abs(target - cur) < 1e-4) cur = target;
+    if (tween) {
+      const t = clamp((now - tween.t0) / tween.dur, 0, 1);
+      cur = target = tween.from + (tween.to - tween.from) * easeInOut(t);
+      setScroll(cur);
+      if (t >= 1) tween = null;
+    } else {
+      const k = 1 - Math.pow(1 - 0.14, dt * 60);
+      cur += (target - cur) * k;
+      if (Math.abs(target - cur) < 1e-4) cur = target;
+    }
     const vel = dt > 0 ? (cur - prev) / dt : 0;
     velS += (vel - velS) * 0.2;
     render(cur);
@@ -312,7 +405,7 @@
   initStars();
   if (location.hash) {
     const i = S.findIndex((s) => '#' + s.el.id === location.hash);
-    if (i > 0) scrollTo(0, (S[i].start + 0.6) * vh);
+    if (i > 0) setScroll(restU(S[i]));
   }
   target = cur = scrollY / vh;
   render(cur);
