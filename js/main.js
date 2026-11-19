@@ -60,11 +60,16 @@ window.BillyMore = (() => {
     timers.forEach(clearTimeout); timers = [];
     state = 'closing';
     dot.tabIndex = -1;
+    // The hero is still shifted left at this moment; aim the arrow at where the
+    // button will be once the hero is back in place (rect minus that shift).
+    const r = btn.getBoundingClientRect();
+    const content = btn.closest('.content');
+    const tr = content ? getComputedStyle(content).translate : 'none';
+    const [tx = 0, ty = 0] = !tr || tr === 'none' ? [] : tr.split(/\s+/).map(parseFloat);
     root.classList.remove('more-open');
     page.setAttribute('aria-hidden', 'true');
-    const r = btn.getBoundingClientRect();
     dot.classList.remove('round');
-    place(r.left, r.top, r.width, r.height);
+    place(r.left - tx, r.top - ty, r.width, r.height);
     later(T(), () => {
       dot.classList.remove('show');
       btn.classList.remove('is-hidden');
