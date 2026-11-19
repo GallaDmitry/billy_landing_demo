@@ -166,7 +166,7 @@ html.more-open .more { visibility: visible; transition: visibility 0s; }
 .more-inner {
   position: relative; width: 100%; max-width: 760px;
   max-height: 100%; overflow-y: auto; overscroll-behavior: contain;
-  padding: 4px 4px 8px;
+  padding: calc(var(--dot) + 26px) 4px 8px;
   transform: translate3d(calc(50vw + 50%), 0, 0); opacity: 0;
   transition: transform var(--more-t) var(--more-ease), opacity var(--more-t) var(--more-ease);
   scrollbar-width: thin;
@@ -175,7 +175,7 @@ html.more-open .more-inner { transform: none; opacity: 1; pointer-events: auto; 
 .more .eyebrow { margin-bottom: 14px; }
 .more-title {
   font-size: clamp(2rem, 1.2rem + 3vw, 4rem); font-weight: 900; line-height: .98; letter-spacing: -.04em;
-  padding-right: calc(var(--dot) + 20px); text-wrap: balance;
+  text-wrap: balance;
 }
 .more-lead { font-size: var(--lead); line-height: 1.5; margin-top: 22px; font-weight: 600; }
 .more p:not(.eyebrow):not(.more-lead) { margin-top: 16px; line-height: 1.6; color: var(--muted); }

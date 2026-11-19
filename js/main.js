@@ -5,7 +5,7 @@
 /* "Maggiori informazioni": an app-style page push. The info page slides into
  * the centre from the right while the hero is pushed out to the left; at the
  * same time the button turns into a round back arrow and travels to the
- * page's top-right corner. The arrow reverses everything. */
+ * page's top-left corner. The arrow reverses everything. */
 window.BillyMore = (() => {
   const root = document.documentElement;
   const btn = document.querySelector('.more-btn');
@@ -21,14 +21,14 @@ window.BillyMore = (() => {
   const later = (ms, f) => timers.push(setTimeout(f, ms));
   const place = (x, y, w, h) => Object.assign(dot.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
 
-  // where the arrow sits: the info page's top-right corner (measured at rest)
+  // where the arrow sits: the info page's top-left corner (measured at rest)
   function corner() {
     const prev = inner.style.transform;
     inner.style.transition = 'none'; inner.style.transform = 'none';
     const r = inner.getBoundingClientRect();
     inner.style.transform = prev; void inner.offsetWidth; inner.style.transition = '';
     const d = D();
-    return { x: r.right - d - 4, y: r.top + 4, d };
+    return { x: r.left + 4, y: r.top + 4, d };
   }
 
   function open() {
