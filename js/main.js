@@ -2,6 +2,111 @@
  * Scroll-driven zoom into a dot. Each scene hides a portal (a dot);
  * scrolling flies the camera into it and the next scene grows from inside.
  */
+/* "Maggiori informazioni": the hero button turns into a dot, and a side panel
+ * grows out of that dot (the same "world inside a dot" move as the chapters).
+ * The dot becomes a back arrow that reverses everything. */
+window.BillyMore = (() => {
+  const root = document.documentElement;
+  const btn = document.querySelector('.more-btn');
+  const panel = document.getElementById('more');
+  const dot = document.querySelector('.more-dot');
+  if (!btn || !panel || !dot) return { isOpen: () => false, close: (cb) => cb && cb() };
+
+  const DOT = 56, MORPH = 550, GROW = 1100;
+  let state = 'closed'; // closed | opening | open | closing
+  let timers = [];
+  const later = (ms, f) => timers.push(setTimeout(f, ms));
+  const place = (el, x, y, w, h) => Object.assign(el.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
+
+  function geometry() {
+    const W = innerWidth, H = innerHeight;
+    const pw = panel.offsetWidth, pl = W - pw;
+    const header = parseFloat(getComputedStyle(root).getPropertyValue('--header')) || 64;
+    const mobile = pw >= W - 1;
+    const cx = mobile ? 22 + DOT / 2 : pl, cy = mobile ? header + 14 + DOT / 2 : H / 2;
+    const lx = cx - pl; // clip centre in panel coordinates
+    const R = Math.max(Math.hypot(lx, cy), Math.hypot(pw - lx, cy), Math.hypot(lx, H - cy), Math.hypot(pw - lx, H - cy)) * 1.02;
+    return { cx, cy, lx, R };
+  }
+  const clipSmall = (g) => `circle(${DOT / 2}px at ${g.lx}px ${g.cy}px)`;
+  const clipBig = (g) => `circle(${g.R}px at ${g.lx}px ${g.cy}px)`;
+
+  function open() {
+    if (state !== 'closed') return;
+    state = 'opening';
+    const r = btn.getBoundingClientRect();
+    dot.classList.remove('round', 'docked');
+    place(dot, r.left, r.top, r.width, r.height);
+    dot.classList.add('show');
+    btn.classList.add('is-hidden');
+    btn.setAttribute('aria-expanded', 'true');
+    void dot.offsetWidth;
+    const g = geometry();
+    // 1. the button shrinks into a dot and travels to the panel's edge
+    dot.classList.add('round');
+    place(dot, g.cx - DOT / 2, g.cy - DOT / 2, DOT, DOT);
+    // 2. the panel grows out of the dot while the hero steps back
+    later(MORPH - 120, () => {
+      panel.style.transition = 'none';
+      panel.style.clipPath = clipSmall(g);
+      void panel.offsetWidth;
+      panel.style.transition = '';
+      root.classList.add('more-open');
+      panel.style.clipPath = clipBig(g);
+      panel.setAttribute('aria-hidden', 'false');
+    });
+    // 3. the dot becomes the back button
+    later(MORPH - 120 + GROW, () => {
+      state = 'open';
+      dot.classList.add('docked');
+      dot.tabIndex = 0;
+      dot.focus({ preventScroll: true });
+    });
+  }
+
+  function close(done) {
+    if (state === 'closed') { done && done(); return; }
+    if (state === 'closing') return;
+    timers.forEach(clearTimeout); timers = [];
+    state = 'closing';
+    const g = geometry();
+    dot.classList.remove('docked');
+    dot.tabIndex = -1;
+    // 1. the panel collapses back into the dot, the hero comes forward
+    panel.style.clipPath = clipSmall(g);
+    root.classList.remove('more-open');
+    panel.setAttribute('aria-hidden', 'true');
+    // 2. the dot turns back into the button
+    later(GROW - 150, () => {
+      const r = btn.getBoundingClientRect();
+      dot.classList.remove('round');
+      place(dot, r.left, r.top, r.width, r.height);
+    });
+    later(GROW - 150 + MORPH, () => {
+      dot.classList.remove('show');
+      btn.classList.remove('is-hidden');
+      btn.setAttribute('aria-expanded', 'false');
+      state = 'closed';
+      if (done) done(); else btn.focus({ preventScroll: true });
+    });
+  }
+
+  btn.addEventListener('click', open);
+  dot.addEventListener('click', () => close());
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && state !== 'closed') close(); });
+  addEventListener('resize', () => {
+    if (state !== 'open') return;
+    const g = geometry();
+    dot.style.transition = 'none'; panel.style.transition = 'none';
+    place(dot, g.cx - DOT / 2, g.cy - DOT / 2, DOT, DOT);
+    panel.style.clipPath = clipBig(g);
+    void dot.offsetWidth;
+    dot.style.transition = ''; panel.style.transition = '';
+  });
+
+  return { isOpen: () => state !== 'closed', close };
+})();
+
 (() => {
   const root = document.documentElement;
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -235,6 +340,7 @@
   // Neighbouring chapter: fly there. Anything further: blur out, cut, blur in
   // (flying through every chapter in between looks messy).
   function goTo(i) {
+    if (BillyMore.isOpen()) { BillyMore.close(() => goTo(i)); return; }
     i = clamp(i, 0, S.length - 1);
     const from = tween ? nearestIndex(tween.to) : nearestIndex(cur);
     if (Math.abs(i - from) <= 1) { flyTo(i); return; }
@@ -267,6 +373,7 @@
   let lastWheel = 0, lastDelta = 0, acc = 0, swallow = false;
   addEventListener('wheel', (e) => {
     if (e.ctrlKey) return; // pinch-zoom
+    if (BillyMore.isOpen()) { if (!e.target.closest('.more')) e.preventDefault(); return; }
     e.preventDefault();
     const now = performance.now();
     const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1);
@@ -286,9 +393,10 @@
   // touch: one swipe = one step
   let ty = null, tx = null;
   addEventListener('touchstart', (e) => { if (e.touches.length === 1) { ty = e.touches[0].clientY; tx = e.touches[0].clientX; } }, { passive: true });
-  addEventListener('touchmove', (e) => { if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
+  addEventListener('touchmove', (e) => { if (BillyMore.isOpen() && e.target.closest('.more')) return; if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
   addEventListener('touchend', (e) => {
     if (ty == null) return;
+    if (BillyMore.isOpen()) { ty = tx = null; return; }
     const t = e.changedTouches[0];
     const dy = ty - t.clientY, dx = tx - t.clientX;
     ty = tx = null;
@@ -299,6 +407,11 @@
   addEventListener('keydown', (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (BillyMore.isOpen()) {
+      // keys scroll the panel, never the page behind it
+      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'Home', 'End'].includes(e.key) && !(e.target.closest && e.target.closest('.more'))) e.preventDefault();
+      return;
+    }
     const k = e.key;
     let dir = 0;
     if (k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !e.shiftKey)) dir = 1;
@@ -314,7 +427,7 @@
   // anything else that scrolls natively (scrollbar drag, find-in-page): snap when it settles
   let snapT;
   addEventListener('scroll', () => {
-    if (performance.now() - lastProg < 120 || busy()) return;
+    if (performance.now() - lastProg < 120 || busy() || BillyMore.isOpen()) return;
     clearTimeout(snapT);
     snapT = setTimeout(() => { if (!busy()) flyTo(nearestIndex(scrollY / vh)); }, 160);
   }, { passive: true });

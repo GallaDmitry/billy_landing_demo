@@ -33,6 +33,27 @@
   </div>
 
   <canvas id="field" aria-hidden="true"></canvas>
+
+  <!-- "Maggiori informazioni": side panel that grows out of a dot -->
+  <aside class="more" id="more" role="dialog" aria-modal="false" aria-labelledby="more-title" aria-hidden="true" tabindex="-1">
+    <div class="more-inner">
+      <p class="eyebrow">Maggiori informazioni</p>
+      <h2 class="more-title" id="more-title">Lorem ipsum dolor sit amet, consectetur.</h2>
+      <p class="more-lead">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere erat a ante venenatis dapibus posuere velit aliquet.</p>
+      <p>Sed posuere consectetur est at lobortis. Cras mattis consectetur purus sit amet fermentum. Donec ullamcorper nulla non metus auctor fringilla. Vestibulum id ligula porta felis euismod semper.</p>
+      <ul class="more-list">
+        <li>Lorem ipsum dolor sit amet</li>
+        <li>Consectetur adipiscing elit</li>
+        <li>Integer posuere erat a ante</li>
+      </ul>
+      <p>Maecenas faucibus mollis interdum. Nullam quis risus eget urna mollis ornare vel eu leo. Aenean lacinia bibendum nulla sed consectetur. Curabitur blandit tempus porttitor.</p>
+      <p>Etiam porta sem malesuada magna mollis euismod. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Praesent commodo cursus magna, vel scelerisque nisl consectetur et.</p>
+    </div>
+  </aside>
+  <button type="button" class="more-dot" aria-label="Torna indietro" tabindex="-1">
+    <span class="more-dot-label" aria-hidden="true">Maggiori informazioni</span>
+    <svg class="more-dot-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
   <div id="vh-probe" aria-hidden="true"></div>
 
   <main class="stage">
@@ -50,8 +71,9 @@
           <p class="lead r">Emetti documenti commerciali da smartphone, tablet, PC e Mac. Senza registratore di cassa, senza pensieri.</p>
           <div class="cta-row r">
             <a href="#inizia" class="btn btn-solid">Provalo gratis</a>
-            <span class="note">7 giorni gratis, senza impegno</span>
+            <button type="button" class="btn btn-ghost more-btn" aria-expanded="false" aria-controls="more">Maggiori informazioni</button>
           </div>
+          <p class="note r">7 giorni gratis, senza impegno</p>
           <div class="scroll-hint" aria-hidden="true"><span class="hint-dot"></span>Scorri ed entra nel punto</div>
         </div>
       </div>
