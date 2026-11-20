@@ -153,25 +153,28 @@ html:not(.deep) .topbar { position: absolute; }
 .btn-ink { --btn-bg: var(--ink); --btn-fg: var(--white); }
 .btn-ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
 
-/* ---------- "Maggiori informazioni": app-style page push ---------- */
-:root { --more-ease: cubic-bezier(.65, 0, .25, 1); --more-t: 1s; --dot: 52px; }
+/* ---------- "Maggiori informazioni": camera pan to the right ----------
+ * The info page lives one screen to the right of the hero on the same canvas.
+ * Opening pans the "camera" right: stage and page slide left together by 100vw. */
+:root { --more-ease: cubic-bezier(.65, 0, .25, 1); --more-t: 1.1s; --dot: 52px; }
 .more {
   position: fixed; inset: 0; z-index: 15;
   display: flex; align-items: center; justify-content: center;
   padding: calc(var(--header) + 16px) var(--gutter) 32px;
+  background: var(--paper); color: var(--ink);
+  box-shadow: -3px 0 0 var(--paper); /* hides the sub-pixel seam with the stage */
   pointer-events: none; visibility: hidden;
-  transition: visibility 0s var(--more-t);
+  translate: 100vw 0;
+  transition: translate var(--more-t) var(--more-ease), visibility 0s var(--more-t);
 }
-html.more-open .more { visibility: visible; transition: visibility 0s; }
+html.more-open .more { visibility: visible; translate: 0 0; transition: translate var(--more-t) var(--more-ease), visibility 0s; }
 .more-inner {
   position: relative; width: 100%; max-width: 760px;
   max-height: 100%; overflow-y: auto; overscroll-behavior: contain;
   padding: calc(var(--dot) + 26px) 4px 8px;
-  transform: translate3d(calc(50vw + 50%), 0, 0); opacity: 0;
-  transition: transform var(--more-t) var(--more-ease), opacity var(--more-t) var(--more-ease);
   scrollbar-width: thin;
 }
-html.more-open .more-inner { transform: none; opacity: 1; pointer-events: auto; }
+html.more-open .more-inner { pointer-events: auto; }
 .more .eyebrow { margin-bottom: 14px; }
 .more-title {
   font-size: clamp(2rem, 1.2rem + 3vw, 4rem); font-weight: 900; line-height: .98; letter-spacing: -.04em;
@@ -183,9 +186,12 @@ html.more-open .more-inner { transform: none; opacity: 1; pointer-events: auto; 
 .more-list li { display: flex; gap: 12px; align-items: center; font-weight: 700; padding: 14px 16px; border-radius: 14px; background: var(--white); border: 1px solid var(--line); }
 .more-list li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); flex: none; }
 
-/* the hero is pushed out to the left, like the previous page in an app */
-#billy .content { transition: translate var(--more-t) var(--more-ease), opacity var(--more-t) var(--more-ease), filter var(--more-t) var(--more-ease); }
-html.more-open #billy .content { translate: -38vw 0; opacity: 0; filter: blur(4px); pointer-events: none; }
+/* the camera pans right: the whole stage (and starfield) slides out to the left */
+html.deep .stage, html.deep #field {
+  transition: filter .45s cubic-bezier(.2,.7,.2,1), opacity .45s cubic-bezier(.2,.7,.2,1), translate var(--more-t) var(--more-ease);
+}
+html.deep.more-open .stage, html.deep.more-open #field { translate: -100vw 0; }
+html.more-open .stage { pointer-events: none; }
 html.more-open .chapters, html.more-open .scroll-hint, html.more-open .hud { opacity: 0; pointer-events: none; }
 .chapters, .hud { transition: opacity .4s; }
 
@@ -503,7 +509,6 @@ body[data-theme="ink"]   .hud { color: var(--paper); }
   .top-link { display: none; }
   .more { align-items: flex-start; padding-top: calc(var(--header) + 12px); padding-bottom: 16px; }
   :root { --dot: 46px; }
-  html.more-open #billy .content { translate: -60vw 0; }
   .brand { width: 70px; }
 
   /* chapters become a bottom rail */

@@ -2,16 +2,17 @@
  * Scroll-driven zoom into a dot. Each scene hides a portal (a dot);
  * scrolling flies the camera into it and the next scene grows from inside.
  */
-/* "Maggiori informazioni": an app-style page push. The info page slides into
- * the centre from the right while the hero is pushed out to the left; at the
- * same time the button turns into a round back arrow and travels to the
- * page's top-left corner. The arrow reverses everything. */
+/* "Maggiori informazioni": a camera pan. The info page sits one screen to the
+ * right of the hero on the same canvas; opening pans the camera right (stage
+ * and page slide left together). Meanwhile the button turns into a round back
+ * arrow and travels to the page's top-left corner. The arrow pans back. */
 window.BillyMore = (() => {
   const root = document.documentElement;
   const btn = document.querySelector('.more-btn');
   const page = document.getElementById('more');
   const inner = page && page.querySelector('.more-inner');
   const dot = document.querySelector('.more-dot');
+  const stage = document.querySelector('.stage');
   if (!btn || !page || !inner || !dot) return { isOpen: () => false, close: (cb) => cb && cb() };
 
   const T = () => (parseFloat(getComputedStyle(root).getPropertyValue('--more-t')) || 1) * 1000;
@@ -23,10 +24,9 @@ window.BillyMore = (() => {
 
   // where the arrow sits: the info page's top-left corner (measured at rest)
   function corner() {
-    const prev = inner.style.transform;
-    inner.style.transition = 'none'; inner.style.transform = 'none';
+    page.style.transition = 'none'; page.style.translate = 'none';
     const r = inner.getBoundingClientRect();
-    inner.style.transform = prev; void inner.offsetWidth; inner.style.transition = '';
+    page.style.translate = ''; void page.offsetWidth; page.style.transition = '';
     const d = D();
     return { x: r.left + 4, y: r.top + 4, d };
   }
@@ -60,11 +60,10 @@ window.BillyMore = (() => {
     timers.forEach(clearTimeout); timers = [];
     state = 'closing';
     dot.tabIndex = -1;
-    // The hero is still shifted left at this moment; aim the arrow at where the
-    // button will be once the hero is back in place (rect minus that shift).
+    // The stage is still panned left at this moment; aim the arrow at where the
+    // button will be once the camera is back (rect minus the current pan).
     const r = btn.getBoundingClientRect();
-    const content = btn.closest('.content');
-    const tr = content ? getComputedStyle(content).translate : 'none';
+    const tr = stage ? getComputedStyle(stage).translate : 'none';
     const [tx = 0, ty = 0] = !tr || tr === 'none' ? [] : tr.split(/\s+/).map(parseFloat);
     root.classList.remove('more-open');
     page.setAttribute('aria-hidden', 'true');
